@@ -1,70 +1,91 @@
-
-import streamlit as st
-import pandas as pd
 import numpy as np
+import pandas as pd
 
-# Sample Data: Replace this with your Big Data processing or loading mechanism.
-data = {
-    'Educational Strategy': ['Traditional Learning', 'Gamification', 'AI Tools', 'Mobile Learning'],
-    'Engagement': [0.80, 0.92, 0.75, 0.85],
-    'Retention Rate': [0.75, 0.90, 0.72, 0.80],
-    'Cognitive Load': [0.60, 0.50, 0.70, 0.65],
-    'Application in Context': [0.70, 0.85, 0.78, 0.80],
-    'Accessibility': [0.85, 0.80, 0.90, 0.88],
-    'Feedback Mechanism': [0.90, 0.85, 0.80, 0.82]
-}
+def normalize_matrix(matrix, criteria_type):
+    """
+    Normalize the decision matrix based on benefit or cost type.
+    
+    Args:
+        matrix (2D array): The decision matrix
+        criteria_type (list): List of "benefit" or "cost" per criterion
 
-# Convert the data to DataFrame
-df = pd.DataFrame(data)
+    Returns:
+        2D array: Normalized matrix
+    """
+    norm_matrix = np.zeros_like(matrix, dtype=float)
+    for j in range(matrix.shape[1]):
+        if criteria_type[j] == 'benefit':
+            norm_matrix[:, j] = matrix[:, j] / np.max(matrix[:, j])
+        elif criteria_type[j] == 'cost':
+            norm_matrix[:, j] = np.min(matrix[:, j]) / matrix[:, j]
+        else:
+            raise ValueError(f"Invalid criteria_type '{criteria_type[j]}'. Use 'benefit' or 'cost'.")
+    return norm_matrix
 
-# WASPAS calculation (simplified)
-def calculate_waspas(df):
-    # Normalize Data (vector normalization)
-    normalized_df = df.copy()
-    for col in df.columns[1:]:
-        normalized_df[col] = df[col] / np.sqrt((df[col]**2).sum())
+def compute_q1(norm_matrix, weights):
+    """
+    Compute Q1 using Weighted Sum Model (WSM)
+    """
+    return np.sum(norm_matrix * weights, axis=1)
 
-    # Weight for each criterion (just for example)
-    weights = {
-        'Engagement': 0.15,
-        'Retention Rate': 0.20,
-        'Cognitive Load': 0.10,
-        'Application in Context': 0.15,
-        'Accessibility': 0.20,
-        'Feedback Mechanism': 0.20
-    }
+def compute_q2(norm_matrix, weights):
+    """
+    Compute Q2 using Weighted Product Model (WPM)
+    """
+    return np.prod(np.power(norm_matrix, weights), axis=1)
 
-    # Weighted Normalized Matrix
-    for col in df.columns[1:]:
-        normalized_df[col] = normalized_df[col] * weights[col]
+def compute_final_q(q1, q2, lambd=0.5):
+    """
+    Combine Q1 and Q2 using λ
+    """
+    return lambd * q1 + (1 - lambd) * q2
 
-    # Calculate Total Score (for each strategy)
-    normalized_df['Total Score'] = normalized_df.iloc[:, 1:].sum(axis=1)
+def rank_alternatives(q):
+    """
+    Rank alternatives based on Q values (descending)
+    """
+    return np.argsort(q)[::-1] + 1  # +1 to rank from 1
 
-    # Rank strategies based on Total Score
-    normalized_df['Rank'] = normalized_df['Total Score'].rank(ascending=False)
+def waspas(decision_matrix, weights, criteria_type, lambd=0.5):
+    """
+    Full WASPAS method
+    
+    Args:
+        decision_matrix (2D array): Alternatives x Criteria matrix
+        weights (1D array): Criteria weights
+        criteria_type (list): "benefit" or "cost" for each criterion
+        lambd (float): Weight for combining Q1 and Q2, usually 0.5
 
-    return normalized_df[['Educational Strategy', 'Total Score', 'Rank']]
+    Returns:
+        DataFrame: Results with Q1, Q2, Q, and Rankings
+    """
+    norm_matrix = normalize_matrix(decision_matrix, criteria_type)
+    q1 = compute_q1(norm_matrix, weights)
+    q2 = compute_q2(norm_matrix, weights)
+    q = compute_final_q(q1, q2, lambd)
+    rank = rank_alternatives(q)
+    
+    df_result = pd.DataFrame({
+        'Q1 (WSM)': q1,
+        'Q2 (WPM)': q2,
+        'Q (Final)': q,
+        'Rank': rank
+    })
+    return df_result
 
-# Streamlit UI
-st.title('SmartRankEDU 360: Educational Strategy Evaluation Using WASPAS')
-
-st.write("This application evaluates educational strategies based on various criteria using the WASPAS method.")
-
-# Display Data
-st.subheader('Educational Strategies Data')
-st.dataframe(df)
-
-# Display Calculated Rankings
-st.subheader('Rankings Based on WASPAS Method')
-ranked_df = calculate_waspas(df)
-st.dataframe(ranked_df)
-
-# Plot Rankings
-st.subheader('Ranking Chart')
-st.bar_chart(ranked_df.set_index('Educational Strategy')['Rank'])
-
-# Running the app:
-if __name__ == '__main__':
-    st.write("Welcome to the SmartRankEDU 360 App!")
+# Example usage:
+if __name__ == "__main__":
+    # Sample data
+    decision_matrix = np.array([
+        [250, 16, 12, 5],
+        [200, 20, 8, 3],
+        [300, 11, 10, 4],
+        [275, 12, 11, 2]
+    ])
+    
+    weights = np.array([0.4, 0.3, 0.2, 0.1])
+    criteria_type = ['benefit', 'cost', 'benefit', 'cost']
+    
+    result_df = waspas(decision_matrix, weights, criteria_type, lambd=0.5)
+    print(result_df)
 
