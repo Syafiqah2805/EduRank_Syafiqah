@@ -1,8 +1,7 @@
-import streamlit as st
 import pandas as pd
 import numpy as np
 
-# Sample Data: Replace this with your Big Data processing or loading mechanism.
+# Sample Data: Educational strategies and criteria values
 data = {
     'Educational Strategy': ['Traditional Learning', 'Gamification', 'AI Tools', 'Mobile Learning'],
     'Engagement': [0.80, 0.92, 0.75, 0.85],
@@ -13,56 +12,68 @@ data = {
     'Feedback Mechanism': [0.90, 0.85, 0.80, 0.82]
 }
 
-# Convert the data to DataFrame
+# Convert data to DataFrame
 df = pd.DataFrame(data)
 
-# WASPAS calculation (simplified)
-def calculate_waspas(df):
-    # Normalize Data (vector normalization)
+# Step 2: Normalize Data using vector normalization
+def normalize_data(df):
     normalized_df = df.copy()
     for col in df.columns[1:]:
         normalized_df[col] = df[col] / np.sqrt((df[col]**2).sum())
-    
-    # Weight for each criterion (just for example)
-    weights = {
-        'Engagement': 0.15,
-        'Retention Rate': 0.20,
-        'Cognitive Load': 0.10,
-        'Application in Context': 0.15,
-        'Accessibility': 0.20,
-        'Feedback Mechanism': 0.20
-    }
+    return normalized_df
 
-    # Weighted Normalized Matrix
-    for col in df.columns[1:]:
+normalized_df = normalize_data(df)
+
+# Step 3: Assign weights to each criterion
+weights = {
+    'Engagement': 0.15,
+    'Retention Rate': 0.20,
+    'Cognitive Load': 0.10,
+    'Application in Context': 0.15,
+    'Accessibility': 0.20,
+    'Feedback Mechanism': 0.20
+}
+
+# Step 4: Weighted Normalization
+def apply_weights(normalized_df, weights):
+    for col in normalized_df.columns[1:]:
         normalized_df[col] = normalized_df[col] * weights[col]
-    
-    # Calculate Total Score (for each strategy)
-    normalized_df['Total Score'] = normalized_df.iloc[:, 1:].sum(axis=1)
+    return normalized_df
 
-    # Rank strategies based on Total Score
-    normalized_df['Rank'] = normalized_df['Total Score'].rank(ascending=False)
+weighted_df = apply_weights(normalized_df, weights)
 
-    return normalized_df[['Educational Strategy', 'Total Score', 'Rank']]
+# Step 5: Calculate Ideal and Anti-Ideal Solutions (PIS & NIS)
+def ideal_anti_ideal(weighted_df):
+    pis = weighted_df.max()  # Ideal Solution (PIS)
+    nis = weighted_df.min()  # Anti-Ideal Solution (NIS)
+    return pis, nis
 
-# Streamlit UI
-st.title('SmartRankEDU 360: Educational Strategy Evaluation Using WASPAS')
+pis, nis = ideal_anti_ideal(weighted_df)
 
-st.write("This application evaluates educational strategies based on various criteria using the WASPAS method.")
+# Step 6: Calculate Euclidean distance to PIS and NIS
+def calculate_distances(weighted_df, pis, nis):
+    pis_distance = np.sqrt(((weighted_df - pis) ** 2).sum(axis=1))
+    nis_distance = np.sqrt(((weighted_df - nis) ** 2).sum(axis=1))
+    return pis_distance, nis_distance
 
-# Display Data
-st.subheader('Educational Strategies Data')
-st.dataframe(df)
+pis_distance, nis_distance = calculate_distances(weighted_df, pis, nis)
 
-# Display Calculated Rankings
-st.subheader('Rankings Based on WASPAS Method')
-ranked_df = calculate_waspas(df)
-st.dataframe(ranked_df)
+# Step 7: Calculate Relative Closeness (Pi)
+def calculate_closeness(pis_distance, nis_distance):
+    closeness = nis_distance / (pis_distance + nis_distance)
+    return closeness
 
-# Plot Rankings
-st.subheader('Ranking Chart')
-st.bar_chart(ranked_df.set_index('Educational Strategy')['Rank'])
+closeness = calculate_closeness(pis_distance, nis_distance)
 
-# Running the app:
-if __name__ == '__main__':
-    st.write("Welcome to the SmartRankEDU 360 App!")
+# Step 8: Rank the Alternatives based on Relative Closeness (Pi)
+def rank_alternatives(closeness):
+    return pd.DataFrame({
+        'Educational Strategy': df['Educational Strategy'],
+        'Closeness (Pi)': closeness,
+        'Rank': closeness.rank(ascending=False)
+    }).sort_values(by='Rank')
+
+ranked_df = rank_alternatives(closeness)
+
+# Show the results
+print(ranked_df)
