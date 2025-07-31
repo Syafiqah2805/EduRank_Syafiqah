@@ -44,14 +44,15 @@ weighted_df = apply_weights(normalized_df, weights)
 
 # Step 5: Calculate Ideal and Anti-Ideal Solutions (PIS & NIS)
 def ideal_anti_ideal(weighted_df):
-    pis = weighted_df.max()  # Ideal Solution (PIS)
-    nis = weighted_df.min()  # Anti-Ideal Solution (NIS)
+    pis = weighted_df.max(axis=0)  # Ideal Solution (PIS)
+    nis = weighted_df.min(axis=0)  # Anti-Ideal Solution (NIS)
     return pis, nis
 
 pis, nis = ideal_anti_ideal(weighted_df)
 
 # Step 6: Calculate Euclidean distance to PIS and NIS
 def calculate_distances(weighted_df, pis, nis):
+    # Broadcasting PIS and NIS to match the DataFrame's shape
     pis_distance = np.sqrt(((weighted_df - pis) ** 2).sum(axis=1))
     nis_distance = np.sqrt(((weighted_df - nis) ** 2).sum(axis=1))
     return pis_distance, nis_distance
@@ -75,5 +76,16 @@ def rank_alternatives(closeness):
 
 ranked_df = rank_alternatives(closeness)
 
-# Show the results
+# Show the results (Step-by-Step Output Table)
+print("Normalized Data (Step 2):")
+print(normalized_df)
+print("\nWeighted Data (Step 4):")
+print(weighted_df)
+print("\nIdeal Solution (PIS) and Anti-Ideal Solution (NIS):")
+print(f"PIS: \n{pis}\nNIS: \n{nis}")
+print("\nCalculated Distances to PIS and NIS (Step 6):")
+print(f"PIS Distance: \n{pis_distance}\nNIS Distance: \n{nis_distance}")
+print("\nRelative Closeness (Pi) (Step 7):")
+print(closeness)
+print("\nFinal Ranking (Step 8):")
 print(ranked_df)
