@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -23,7 +22,7 @@ def calculate_waspas(df):
     normalized_df = df.copy()
     for col in df.columns[1:]:
         normalized_df[col] = df[col] / np.sqrt((df[col]**2).sum())
-
+    
     # Weight for each criterion (just for example)
     weights = {
         'Engagement': 0.15,
@@ -37,7 +36,7 @@ def calculate_waspas(df):
     # Weighted Normalized Matrix
     for col in df.columns[1:]:
         normalized_df[col] = normalized_df[col] * weights[col]
-
+    
     # Calculate Total Score (for each strategy)
     normalized_df['Total Score'] = normalized_df.iloc[:, 1:].sum(axis=1)
 
