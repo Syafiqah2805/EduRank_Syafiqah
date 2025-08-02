@@ -2,9 +2,13 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 
-# Sample Data: Replace this with your Big Data processing or loading mechanism.
+# -----------------------------
+# Sample Decision Matrix
+# -----------------------------
 data = {
-    'Educational Strategy': ['Traditional Learning', 'Gamification', 'AI Tools', 'Mobile Learning'],
+    'Alternative': [
+        'Traditional Learning', 'Gamification', 'AI Tools', 'Mobile Learning'
+    ],
     'Engagement': [0.80, 0.92, 0.75, 0.85],
     'Retention Rate': [0.75, 0.90, 0.72, 0.80],
     'Cognitive Load': [0.60, 0.50, 0.70, 0.65],
@@ -13,57 +17,83 @@ data = {
     'Feedback Mechanism': [0.90, 0.85, 0.80, 0.82]
 }
 
-# Convert the data to DataFrame
 df = pd.DataFrame(data)
 
-# WASPAS calculation (simplified)
-def calculate_waspas(df):
-    # Normalize Data (vector normalization)
-    normalized_df = df.copy()
-    for col in df.columns[1:]:
-        normalized_df[col] = df[col] / np.sqrt((df[col]**2).sum())
+# Criteria weights (must sum to 1)
+weights = {
+    'Engagement': 0.15,
+    'Retention Rate': 0.20,
+    'Cognitive Load': 0.10,
+    'Application in Context': 0.15,
+    'Accessibility': 0.20,
+    'Feedback Mechanism': 0.20
+}
 
-    # Weight for each criterion (just for example)
-    weights = {
-        'Engagement': 0.15,
-        'Retention Rate': 0.20,
-        'Cognitive Load': 0.10,
-        'Application in Context': 0.15,
-        'Accessibility': 0.20,
-        'Feedback Mechanism': 0.20
-    }
+# Convert weights to DataFrame for display
+weights_df = pd.DataFrame(list(weights.items()), columns=['Criterion', 'Weight'])
 
-    # Weighted Normalized Matrix
-    for col in df.columns[1:]:
-        normalized_df[col] = normalized_df[col] * weights[col]
+# -----------------------------
+# WASPAS Calculation
+# -----------------------------
+def calculate_waspas(df, weights):
+    # Extract only numeric part
+    criteria_cols = df.columns[1:]
+    numeric_df = df[criteria_cols].copy()
 
-    # Calculate Total Score (for each strategy)
-    normalized_df['Total Score'] = normalized_df.iloc[:, 1:].sum(axis=1)
+    # Step 1: Normalize matrix
+    normalized_df = numeric_df / np.sqrt((numeric_df**2).sum())
+    
+    # Step 2: Weighted normalized matrix
+    weighted_norm_df = normalized_df.copy()
+    for col in criteria_cols:
+        weighted_norm_df[col] = weighted_norm_df[col] * weights[col]
+    
+    # Step 3: WASPAS score (WSM + WPM hybrid)
+    # WSM component (sum of weighted normalized values)
+    wsm_score = weighted_norm_df.sum(axis=1)
+    
+    # WPM component (product of values raised to weights)
+    wpm_score = np.prod(normalized_df ** list(weights.values()), axis=1)
+    
+    # WASPAS final score (λ=0.5)
+    final_score = 0.5 * wsm_score + 0.5 * wpm_score
+    
+    result_df = df[['Alternative']].copy()
+    result_df['WASPAS Score'] = final_score
+    result_df['Rank'] = result_df['WASPAS Score'].rank(ascending=False)
+    
+    return normalized_df, weighted_norm_df, result_df
 
-    # Rank strategies based on Total Score
-    normalized_df['Rank'] = normalized_df['Total Score'].rank(ascending=False)
+normalized_df, weighted_norm_df, result_df = calculate_waspas(df, weights)
 
-    return normalized_df[['Educational Strategy', 'Total Score', 'Rank']]
-
+# -----------------------------
 # Streamlit UI
-st.title('SmartRankEDU 360: Educational Strategy Evaluation Using WASPAS')
+# -----------------------------
+st.title("SmartRankEDU 360: Big Data-Enhanced Educational Strategy Evaluation Using WASPAS")
 
-st.write("This application evaluates educational strategies based on various criteria using the WASPAS method.")
-
-# Display Data
-st.subheader('Educational Strategies Data')
+st.subheader("Step 1: Decision Matrix")
 st.dataframe(df)
 
-# Display Calculated Rankings
-st.subheader('Rankings Based on WASPAS Method')
-ranked_df = calculate_waspas(df)
-st.dataframe(ranked_df)
+st.subheader("Step 2: Criteria Weights")
+st.dataframe(weights_df)
 
-# Plot Rankings
-st.subheader('Ranking Chart')
-st.bar_chart(ranked_df.set_index('Educational Strategy')['Rank'])
+st.subheader("Step 3: Normalized Decision Matrix")
+st.dataframe(normalized_df)
 
-# Running the app:
-if __name__ == '__main__':
-    st.write("Welcome to the SmartRankEDU 360 App!")
+st.subheader("Step 4: Weighted Normalized Matrix")
+st.dataframe(weighted_norm_df)
 
+st.subheader("Step 5: Final WASPAS Scores and Ranking")
+st.dataframe(result_df)
+
+st.subheader("Step 6: Ranking Bar Chart")
+st.bar_chart(result_df.set_index('Alternative')['WASPAS Score'])
+
+# Option to download result
+csv = result_df.to_csv(index=False).encode('utf-8')
+st.download_button(
+    label="Download Final Results as CSV",
+    data=csv,
+    file_name='waspas_results.csv',
+    mime='text/csv',
+)
